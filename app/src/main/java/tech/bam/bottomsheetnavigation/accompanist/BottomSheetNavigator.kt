@@ -16,7 +16,6 @@
 
 package tech.bam.bottomsheetnavigation.accompanist
 
-import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material.*
 import androidx.compose.runtime.*
@@ -79,27 +78,6 @@ public class BottomSheetNavigatorSheetState(private val sheetState: ModalBottomS
 }
 
 /**
- * Create and remember a [BottomSheetNavigator]
- */
-@ExperimentalMaterialNavigationApi
-@OptIn(ExperimentalMaterialApi::class)
-@Composable
-public fun rememberBottomSheetNavigator(
-    animationSpec: AnimationSpec<Float> = SwipeableDefaults.AnimationSpec,
-    sheetState: ModalBottomSheetState = rememberModalBottomSheetState(
-        ModalBottomSheetValue.Hidden,
-        animationSpec
-    ),
-    onSheetDismissed: (() -> Unit)? = null,
-    navController: NavHostController
-): BottomSheetNavigator {
-    return BottomSheetNavigator(sheetState = sheetState, customOnSheetDismissed = onSheetDismissed)
-        .apply {
-            navController.navigatorProvider.addNavigator(this)
-        }
-}
-
-/**
  * Navigator that drives a [ModalBottomSheetState] for use of [ModalBottomSheetLayout]s
  * with the navigation library. Every destination using this Navigator must set a valid
  * [Composable] by setting it directly on an instantiated [Destination] or calling
@@ -118,9 +96,8 @@ public fun rememberBottomSheetNavigator(
 @ExperimentalMaterialNavigationApi
 @OptIn(ExperimentalMaterialApi::class)
 @Navigator.Name("BottomSheetNavigator")
-public class BottomSheetNavigator(
-    internal val sheetState: ModalBottomSheetState,
-    customOnSheetDismissed: (() -> Unit)? = null
+public open class BottomSheetNavigator(
+    val sheetState: ModalBottomSheetState
 ) : Navigator<BottomSheetNavigator.Destination>() {
 
     private var attached by mutableStateOf(false)
@@ -130,7 +107,7 @@ public class BottomSheetNavigator(
      * before the Navigator is attached, so we specifically return an empty flow if we aren't
      * attached yet.
      */
-    private val backStack: StateFlow<List<NavBackStackEntry>>
+    protected val backStack: StateFlow<List<NavBackStackEntry>>
         get() = if (attached) {
             state.backStack
         } else {
@@ -142,7 +119,7 @@ public class BottomSheetNavigator(
      * composed before the Navigator is attached, so we specifically return an empty flow if we
      * aren't attached yet.
      */
-    private val transitionsInProgress: StateFlow<Set<NavBackStackEntry>>
+    protected val transitionsInProgress: StateFlow<Set<NavBackStackEntry>>
         get() = if (attached) {
             state.transitionsInProgress
         } else {
@@ -158,7 +135,7 @@ public class BottomSheetNavigator(
      * A [Composable] function that hosts the current sheet content. This should be set as
      * sheetContent of your [ModalBottomSheetLayout].
      */
-    public val sheetContent: @Composable ColumnScope.() -> Unit = @Composable {
+    public open val sheetContent: @Composable ColumnScope.() -> Unit = @Composable {
         val columnScope = this
         val saveableStateHolder = rememberSaveableStateHolder()
         val backStackEntries by backStack.collectAsState()
@@ -192,26 +169,15 @@ public class BottomSheetNavigator(
                 state.markTransitionComplete(backStackEntry)
             },
             onSheetDismissed = { backStackEntry ->
-                if (customOnSheetDismissed != null) {
-                    customOnSheetDismissed()
+                // Sheet dismissal can be started through popBackStack in which case we have a
+                // transition that we'll want to complete
+                if (transitionsInProgressEntries.contains(backStackEntry)) {
+                    state.markTransitionComplete(backStackEntry)
                 } else {
-                    safePop(transitionsInProgressEntries, backStackEntry)
+                    state.pop(popUpTo = backStackEntry, saveState = false)
                 }
             }
         )
-    }
-
-    private fun safePop(
-        transitionsInProgressEntries: Set<NavBackStackEntry>,
-        backStackEntry: NavBackStackEntry
-    ) {
-        // Sheet dismissal can be started through popBackStack in which case we have a
-        // transition that we'll want to complete
-        if (transitionsInProgressEntries.contains(backStackEntry)) {
-            state.markTransitionComplete(backStackEntry)
-        } else {
-            state.pop(popUpTo = backStackEntry, saveState = false)
-        }
     }
 
     override fun onAttach(state: NavigatorState) {

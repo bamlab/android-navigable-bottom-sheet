@@ -37,7 +37,7 @@ public fun NavGraphBuilder.bottomSheet(
 ) {
     addDestination(
         BottomSheetNavigator.Destination(
-            provider[BottomSheetNavigator::class],
+            provider[CustomBottomSheetNavigator::class],
             content
         ).apply {
             this.route = route

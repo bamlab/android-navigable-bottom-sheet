@@ -53,7 +53,7 @@ fun DemonstrationScreen() {
     val navController = rememberNavController()
     val hideAndReset: () -> Unit =
         { navController.popBackStack(route = Destinations.Home, inclusive = false) }
-    val bottomSheetNavigator: BottomSheetNavigator = rememberBottomSheetNavigator(
+    val bottomSheetNavigator: CustomBottomSheetNavigator = rememberBottomSheetNavigator(
         sheetState = bottomSheetState,
         navController = navController,
         onSheetDismissed = hideAndReset
